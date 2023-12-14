@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import csv
-from pandas import json_normalize
+# from pandas import json_normalize
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 
@@ -94,8 +94,8 @@ for policy in policies:
     conditions = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nrqlConditions']
 
     for condition in conditions:
-        flattened_data = json_normalize(condition, sep='.')
-        csv_data.append(flattened_data)
+        # flattened_data = json_normalize(condition, sep='.')
+        csv_data.append(condition)
 
 with open('alert_policies.csv', 'w', newline='') as file:
     writer = csv.DictWriter(file, fieldnames=csv_data[0].keys())
