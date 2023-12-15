@@ -1,5 +1,3 @@
-Certainly, here's the README.md content in pure Markdown text:
-
 # New Relic Alert Configuration Dumper
 
 ## Overview
