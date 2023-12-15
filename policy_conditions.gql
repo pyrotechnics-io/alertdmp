@@ -1,0 +1,206 @@
+query getPolicyConditions($accountId: Int!, $policyId: ID!, $cursor: String) {
+  actor {
+    account(id: $accountId) {
+      alerts {
+        policy(id: $policyId) {
+          id
+          incidentPreference
+          name
+          accountId
+        }
+        nrqlConditionsSearch (cursor: $cursor) {
+          nextCursor
+          nrqlConditions {
+            id
+            name
+            nrql {
+              query
+            }
+            runbookUrl
+            signal {
+              aggregationDelay
+              aggregationMethod
+              aggregationTimer
+              aggregationWindow
+              evaluationDelay
+              evaluationOffset
+              fillOption
+              fillValue
+              slideBy
+            }
+            policyId
+            description
+            violationTimeLimitSeconds
+            terms {
+              threshold
+              thresholdDuration
+              thresholdOccurrences
+              priority
+              operator
+            }
+            enabled
+            expiration {
+              closeViolationsOnExpiration
+              expirationDuration
+              openViolationOnExpiration
+            }
+            type
+            entity {
+              name
+              guid
+            }
+            ... on AlertsNrqlStaticCondition {
+              id
+              name
+              nrql {
+                query
+                evaluationOffset
+              }
+              description
+              signal {
+                aggregationDelay
+                aggregationMethod
+                aggregationTimer
+                aggregationWindow
+                evaluationDelay
+                evaluationOffset
+                fillOption
+                fillValue
+                slideBy
+              }
+              enabled
+              type
+              terms {
+                operator
+                priority
+                threshold
+                thresholdDuration
+                thresholdOccurrences
+              }
+              runbookUrl
+              policyId
+              expiration {
+                closeViolationsOnExpiration
+                expirationDuration
+                openViolationOnExpiration
+              }
+              entityGuid
+            }
+            ... on AlertsNrqlBaselineCondition {
+              id
+              name
+              nrql {
+                query
+              }
+              description
+              enabled
+              expiration {
+                closeViolationsOnExpiration
+                expirationDuration
+                openViolationOnExpiration
+              }
+              runbookUrl
+              signal {
+                aggregationDelay
+                aggregationMethod
+                aggregationTimer
+                aggregationWindow
+                evaluationDelay
+                fillOption
+                fillValue
+                slideBy
+                evaluationOffset
+              }
+              terms {
+                operator
+                priority
+                threshold
+                thresholdDuration
+                thresholdOccurrences
+              }
+              type
+              violationTimeLimitSeconds
+              violationTimeLimit
+              policyId
+            }
+            ... on AlertsNrqlOutlierCondition {
+              id
+              name
+              nrql {
+                query
+                evaluationOffset
+              }
+              description
+              expiration {
+                closeViolationsOnExpiration
+                expirationDuration
+                openViolationOnExpiration
+              }
+              signal {
+                aggregationDelay
+                aggregationMethod
+                aggregationTimer
+                aggregationWindow
+                evaluationDelay
+                evaluationOffset
+                fillOption
+                fillValue
+                slideBy
+              }
+              terms {
+                operator
+                priority
+                threshold
+                thresholdDuration
+                thresholdOccurrences
+              }
+              type
+              violationTimeLimitSeconds
+              violationTimeLimit
+              runbookUrl
+              policyId
+              expectedGroups
+              enabled
+            }
+            ... on AlertsNrqlCondition {
+              id
+              name
+              nrql {
+                query
+              }
+              description
+              violationTimeLimitSeconds
+              signal {
+                aggregationDelay
+                aggregationMethod
+                aggregationTimer
+                aggregationWindow
+                evaluationDelay
+                evaluationOffset
+                fillOption
+                fillValue
+                slideBy
+              }
+              type
+              terms {
+                operator
+                priority
+                threshold
+                thresholdDuration
+                thresholdOccurrences
+              }
+              violationTimeLimit
+              expiration {
+                closeViolationsOnExpiration
+                expirationDuration
+                openViolationOnExpiration
+              }
+              enabled
+            }
+          }
+          totalCount
+        }
+      }
+    }
+  }
+}

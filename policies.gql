@@ -1,0 +1,16 @@
+query getPolicies($accountId: Int!, $cursor: String) {
+  actor {
+    account(id: $accountId) {
+      alerts {
+        policiesSearch(cursor: $cursor) {
+          policies {
+            id
+            name
+            incidentPreference
+          }
+          nextCursor
+        }
+      }
+    }
+  }
+}
