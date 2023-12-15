@@ -2,13 +2,26 @@
 
 import csv
 import os
+import json
 import argparse
 from pandas import json_normalize
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
+import logging
 
+# GraphQL templates
 query_policies = None
 query_policy_conditions = None
+
+def setup_module_logger(name, log_level):
+    logger = logging.getLogger(name)
+    logger.setLevel(log_level)
+    ch = logging.StreamHandler()
+    ch.setLevel(log_level)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    return logger
 
 
 def load_templates():
@@ -31,6 +44,7 @@ def process(account_id, new_relic_api_key):
     all_policies = []
     csv_data = []
 
+    logger.info("Looking for all configured policies")
     while True:
         result = client.execute(query_policies, variable_values={"accountId": account_id, "cursor": cursor})
         policies = result['actor']['account']['alerts']['policiesSearch']['policies']
@@ -42,9 +56,11 @@ def process(account_id, new_relic_api_key):
         policy_id = policy['id']
         policy_name = policy['name']
         cursor = None
+        logger.info("Looking for conditions inside policy: {}".format(policy_id))
         while True:
             conditions_result = client.execute(query_policy_conditions, variable_values={"cursor": cursor, "policyId": policy_id, "accountId": account_id})
             conditions = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nrqlConditions']
+            logger.debug(json.dumps(conditions, indent=4))
             # Need to add the policy name to all of them. 
             for c in conditions:
                 c["policyName"] = policy_name
@@ -58,24 +74,37 @@ def get_args():
     parser.add_argument("--account_id", required=True, help="Your New Relic account ID")
     parser.add_argument("--api_key", required=True, help="Your New Relic API key")
     parser.add_argument("--output_file", required=False, default="alert_policies.csv", help="Output file")
-    parser.add_argument("--use_pandas", required=False, default=True, help="Use pandas for json normalization")
+    parser.add_argument("--use_pandas", required=False, action='store_true', default=True, help="Use pandas for json normalization")
+    parser.add_argument("--debug", required=False, action='store_true', default=False, help="Dump debug data")
     
     args = parser.parse_args()
     return args
 
 def main():
+    global logger
     args = get_args()
+    if args.debug:
+      logger = setup_module_logger(__name__, logging.DEBUG)
+    else:
+      logger = setup_module_logger(__name__, logging.INFO)
     account_id = int(args.account_id)
     api_key = args.api_key
+    logger.info("Running on account {}".format(args.account_id))
+    
+    logger.info("Loading GraphQL templates")
     load_templates()
     if os.path.exists(args.output_file):
+      logger.debug("Removing stale file")
       os.remove(args.output_file)
+    logger.info("Initiating dump")
     policy_data = process(account_id, api_key)
 
     if args.use_pandas:
+        logger.info("Dumping to CSV using pandas")
         df = json_normalize(policy_data, sep='.')
         df.to_csv(args.output_file, index=False)
     else:    
+        logger.info("Dumping to CSV using csv module")
         with open(args.output_file, 'w', newline='') as file:
             writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
             writer.writeheader()
