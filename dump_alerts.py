@@ -74,6 +74,7 @@ def get_args():
     parser.add_argument("--account_id", required=True, help="Your New Relic account ID")
     parser.add_argument("--api_key", required=True, help="Your New Relic API key")
     parser.add_argument("--output_file", required=False, default="alert_policies.csv", help="Output file")
+    parser.add_argument("--json", required=False, action='store_true', default=False, help="Dump json directly to file")
     parser.add_argument("--use_pandas", required=False, action='store_true', default=True, help="Use pandas for json normalization")
     parser.add_argument("--debug", required=False, action='store_true', default=False, help="Dump debug data")
     
@@ -96,19 +97,24 @@ def main():
     if os.path.exists(args.output_file):
       logger.debug("Removing stale file")
       os.remove(args.output_file)
-    logger.info("Initiating dump")
+    logger.info("Collecting data ...")
     policy_data = process(account_id, api_key)
 
-    if args.use_pandas:
-        logger.info("Dumping to CSV using pandas")
-        df = json_normalize(policy_data, sep='.')
-        df.to_csv(args.output_file, index=False)
-    else:    
-        logger.info("Dumping to CSV using csv module")
+    if args.json:
+        logger.info("Dumping to JSON")
         with open(args.output_file, 'w', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
-            writer.writeheader()
-            writer.writerows(policy_data)
+            file.write(json.dumps(policy_data, indent=4))
+    else:
+        if args.use_pandas:
+            logger.info("Dumping to CSV using pandas")
+            df = json_normalize(policy_data, sep='.')
+            df.to_csv(args.output_file, index=False)
+        else:    
+            logger.info("Dumping to CSV using csv module")
+            with open(args.output_file, 'w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
+                writer.writeheader()
+                writer.writerows(policy_data)
 
 if __name__ == "__main__":
     main()
