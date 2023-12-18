@@ -13,6 +13,32 @@ query getPolicyConditions($accountId: Int!, $policyId: ID!, $cursor: String) {
             }
             enabled
             id
+            expiration {
+              openViolationOnExpiration
+              expirationDuration
+              closeViolationsOnExpiration
+            }
+            runbookUrl
+            policyId
+            signal {
+              aggregationDelay
+              aggregationMethod
+              aggregationTimer
+              aggregationWindow
+              evaluationDelay
+              fillOption
+              fillValue
+              slideBy
+            }
+            terms {
+              operator
+              priority
+              threshold
+              thresholdDuration
+              thresholdOccurrences
+            }
+            type
+            violationTimeLimitSeconds
           }
           totalCount
         }

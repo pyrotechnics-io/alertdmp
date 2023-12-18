@@ -83,19 +83,13 @@ def process(account_id, new_relic_api_key):
             try:
                 logger.debug("Querying account: {} policy: {}|{}".format(account_id, policy_id, policy_name))
                 conditions_result = client.execute(query_policy_conditions, variable_values={"cursor": cursor, "policyId": policy_id, "accountId": account_id})
-            except TransportQueryError as e:
-                if "NRQL query must be supplied" in str(e):
-                    print(f"Ignored TransportQueryError for parameter {policy_name}: {e}")
-                    continue
-                else:
-                    raise
             except Exception as e:
                 if retries == 0:
                     logger.error("Maximum retries exceeded. Last error: {}", e)
                     os._exit(-1)
                 else:
                     retries -= 1
-                    logger.debug("Retry {} on error: {}".format(account_id, policy_id, retries, e))
+                    logger.debug("Retry {} on error: {}".format(retries, e))
                 time.sleep(retry_delay)
                 continue
             conditions = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nrqlConditions']
