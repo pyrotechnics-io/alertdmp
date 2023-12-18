@@ -39,6 +39,10 @@ query getPolicyConditions($accountId: Int!, $policyId: ID!, $cursor: String) {
             }
             type
             violationTimeLimitSeconds
+            entity {
+              accountId
+              domain
+            }
           }
           totalCount
         }
