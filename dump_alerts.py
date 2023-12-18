@@ -2,6 +2,7 @@
 
 import csv
 import os
+import time
 import json
 import argparse
 from pandas import json_normalize
@@ -12,6 +13,10 @@ import logging
 # GraphQL templates
 query_policies = None
 query_policy_conditions = None
+
+# Http
+max_retries = 10
+retry_delay = 5
 
 def setup_module_logger(name, log_level):
     logger = logging.getLogger(name)
@@ -34,6 +39,8 @@ def load_templates():
         query_policy_conditions = gql(cond.read())
 
 def process(account_id, new_relic_api_key):
+    global max_retries
+    global retry_delay
     transport = RequestsHTTPTransport(
         url='https://api.newrelic.com/graphql',
         headers={'API-Key': new_relic_api_key},
@@ -45,11 +52,23 @@ def process(account_id, new_relic_api_key):
     csv_data = []
 
     logger.info("Looking for all configured policies")
+    retries = max_retries
     while True:
-        result = client.execute(query_policies, variable_values={"accountId": account_id, "cursor": cursor})
+        try:
+            result = client.execute(query_policies, variable_values={"accountId": account_id, "cursor": cursor})
+        except Exception as e:
+            retries -= 1
+            if retries == 0:
+                logger.error("Maximum retries exceeded. Last error: {}", e)
+                os._exit(-1)
+            else:
+                logger.debug("Retry {} on HTTP error: {}".format(retries, e))
+            time.sleep(retry_delay)
+            continue
         policies = result['actor']['account']['alerts']['policiesSearch']['policies']
         all_policies.extend(policies)
-        if result['actor']['account']['alerts']['policiesSearch']['nextCursor'] is None:
+        cursor = result['actor']['account']['alerts']['policiesSearch']['nextCursor']
+        if cursor is None:
             break
 
     for policy in all_policies:
@@ -57,15 +76,27 @@ def process(account_id, new_relic_api_key):
         policy_name = policy['name']
         cursor = None
         logger.info("Looking for conditions inside policy: {}".format(policy_id))
+        retries = max_retries
         while True:
-            conditions_result = client.execute(query_policy_conditions, variable_values={"cursor": cursor, "policyId": policy_id, "accountId": account_id})
+            try:
+                conditions_result = client.execute(query_policy_conditions, variable_values={"cursor": cursor, "policyId": policy_id, "accountId": account_id})
+            except Exception as e:
+                retries -= 1
+                if retries == 0:
+                    logger.error("Maximum retries exceeded. Last error: {}", e)
+                    os._exit(-1)
+                else:
+                    logger.debug("Retry {} on HTTP error: {}".format(retries, e))
+                time.sleep(retry_delay)
+                continue
             conditions = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nrqlConditions']
             logger.debug(json.dumps(conditions, indent=4))
             # Need to add the policy name to all of them. 
             for c in conditions:
                 c["policyName"] = policy_name
             csv_data.extend(conditions)
-            if conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nextCursor'] is None:
+            cursor = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nextCursor']
+            if cursor is None:
                 break
     return csv_data
 
