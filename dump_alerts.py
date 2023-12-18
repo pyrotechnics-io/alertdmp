@@ -5,6 +5,7 @@ import os
 import time
 import json
 import argparse
+from pathlib import Path
 from pandas import json_normalize
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
@@ -144,23 +145,20 @@ def main():
     
     logger.info("Loading GraphQL templates")
     load_templates()
-    if os.path.exists(args.output_file):
-      logger.debug("Removing stale file")
-      os.remove(args.output_file)
     logger.info("Collecting data ...")
     policy_data = process(account_id, api_key)
 
     if args.json:
         logger.info("Dumping to JSON")
-        with open(args.output_file, 'w', newline='') as file:
+        with open(Path(args.output_file).stem + '.json', 'w', newline='') as file:
             file.write(json.dumps(policy_data, indent=4))
     else:
         if args.use_pandas:
-            logger.info("Dumping to CSV using pandas")
+            logger.info("Dumping to CSV (pandas)")
             df = json_normalize(policy_data, sep='.')
             df.to_csv(args.output_file, index=False)
         else:    
-            logger.info("Dumping to CSV using csv module")
+            logger.info("Dumping to CSV")
             with open(args.output_file, 'w', newline='') as file:
                 writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
                 writer.writeheader()
