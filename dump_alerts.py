@@ -8,6 +8,8 @@ import argparse
 from pandas import json_normalize
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
+from gql.transport.exceptions import TransportQueryError
+
 import logging
 
 # GraphQL templates
@@ -57,11 +59,11 @@ def process(account_id, new_relic_api_key):
         try:
             result = client.execute(query_policies, variable_values={"accountId": account_id, "cursor": cursor})
         except Exception as e:
-            retries -= 1
             if retries == 0:
                 logger.error("Maximum retries exceeded. Last error: {}", e)
                 os._exit(-1)
             else:
+                retries -= 1
                 logger.debug("Retry {} on HTTP error: {}".format(retries, e))
             time.sleep(retry_delay)
             continue
@@ -79,14 +81,21 @@ def process(account_id, new_relic_api_key):
         retries = max_retries
         while True:
             try:
+                logger.debug("Querying account: {} policy: {}|{}".format(account_id, policy_id, policy_name))
                 conditions_result = client.execute(query_policy_conditions, variable_values={"cursor": cursor, "policyId": policy_id, "accountId": account_id})
+            except TransportQueryError as e:
+                if "NRQL query must be supplied" in str(e):
+                    print(f"Ignored TransportQueryError for parameter {policy_name}: {e}")
+                    continue
+                else:
+                    raise
             except Exception as e:
-                retries -= 1
                 if retries == 0:
                     logger.error("Maximum retries exceeded. Last error: {}", e)
                     os._exit(-1)
                 else:
-                    logger.debug("Retry {} on HTTP error: {}".format(retries, e))
+                    retries -= 1
+                    logger.debug("Retry {} on error: {}".format(account_id, policy_id, retries, e))
                 time.sleep(retry_delay)
                 continue
             conditions = conditions_result['actor']['account']['alerts']['nrqlConditionsSearch']['nrqlConditions']

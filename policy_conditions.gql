@@ -8,7 +8,7 @@ query getPolicyConditions($accountId: Int!, $policyId: ID!, $cursor: String) {
           name
           accountId
         }
-        nrqlConditionsSearch (cursor: $cursor) {
+        nrqlConditionsSearch(searchCriteria: {nameLike: "*"}, cursor: $cursor) {
           nextCursor
           nrqlConditions {
             id
