@@ -116,6 +116,16 @@ def process(account_id, new_relic_api_key):
                     break
     return csv_data
 
+def post_process(policy_data):
+    # Alert thresholds are a json list of values. These need to be expanded into columns instead
+    for row in policy_data:
+        thresholds = row["terms"]
+        for index, term in enumerate(thresholds):
+            for key, value in term.items():
+                name = f"threshold.{index}.{key}"
+                row[name] = value
+    return policy_data
+
 def get_args():
     parser = argparse.ArgumentParser(description="Alert configuration dumper")
     parser.add_argument("--account_id", required=False, help="Your New Relic Account ID (leave blank for all accounts)")
@@ -146,7 +156,8 @@ def main():
     logger.info("Loading GraphQL templates")
     load_templates()
     logger.info("Collecting data ...")
-    policy_data = process(account_id, api_key)
+    json_data = process(account_id, api_key)
+    policy_data = post_process(json_data)
 
     if args.json:
         logger.info("Dumping to JSON")
