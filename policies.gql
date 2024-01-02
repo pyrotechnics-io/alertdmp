@@ -5,6 +5,7 @@ query getPolicies($accountId: Int!, $cursor: String) {
         policiesSearch(cursor: $cursor) {
           policies {
             id
+            accountId
             name
             incidentPreference
           }
