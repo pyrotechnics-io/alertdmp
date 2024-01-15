@@ -7,6 +7,8 @@ import json
 import argparse
 from pathlib import Path
 from pandas import json_normalize
+from thefuzz import fuzz
+import itertools
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 from gql.transport.exceptions import TransportQueryError
@@ -34,7 +36,7 @@ def setup_module_logger(name, log_level):
 
 
 def load_templates():
-    global query_accounts
+    global query_accountS
     global query_policies
     global query_policy_conditions
 
@@ -84,8 +86,9 @@ def process(account_id, new_relic_api_key):
         for acc in result['actor']['accounts']:
             all_accounts.append(acc['id'])
 
+    logger.info(f"Looking into {len(all_accounts)} accounts ...")
     for account_id in all_accounts:
-        logger.info(f"Looking for configured policies on account {account_id}")
+        logger.debug(f"Looking for configured policies on account {account_id}")
         retries = max_retries
         while True:
             result = query(client, query_policies, {"accountId": account_id, "cursor": cursor})
@@ -95,11 +98,12 @@ def process(account_id, new_relic_api_key):
             if cursor is None:
                 break
 
+        logger.debug("Looking for policies inside account: {}".format(account_id))
         for policy in all_policies:
             policy_id = policy['id']
             policy_name = policy['name']
             cursor = None
-            logger.info("Looking for conditions inside policy: {}".format(policy_id))
+            logger.debug("Looking for conditions inside policy: {}".format(policy_id))
             while True:
                 logger.debug("Querying account: {} policy: {}|{}".format(account_id, policy_id, policy_name))
                 conditions_result = query(client, query_policy_conditions, {"cursor": cursor, "policyId": policy_id, "accountId": account_id})
@@ -130,6 +134,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="Alert configuration dumper")
     parser.add_argument("--account_id", required=False, help="Your New Relic Account ID (leave blank for all accounts)")
     parser.add_argument("--api_key", required=True, help="Your New Relic API key")
+    parser.add_argument("--similarity", required=False, default=0, help="A percentage similarity threshold to filter against")
     parser.add_argument("--output_file", required=False, default="alert_policies.csv", help="Output file")
     parser.add_argument("--json", required=False, action='store_true', default=False, help="Dump json directly to file")
     parser.add_argument("--use_pandas", required=False, action='store_true', default=True, help="Use pandas for json normalization")
@@ -174,6 +179,24 @@ def main():
                 writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
                 writer.writeheader()
                 writer.writerows(policy_data)
+                
+    if int(args.similarity) > 0:
+        logger.info(f"Discovering similar pairs")
+        similar_pairs = []
+        for row1, row2 in itertools.combinations(policy_data, 2):
+            value1 = row1["nrql"]["query"]
+            key1 = f"{row1['id']}:{row1['name']}"
+            value2 = row2["nrql"]["query"]
+            key2 = f"{row2['id']}:{row2['name']}"
+            similarity_score = fuzz.ratio(value1, value2)
+            if similarity_score >= int(args.similarity):
+                similar_pairs.append({"first": key1, "second": key2, "score": similarity_score})
+        logger.info(f"Sorting ...")
+        sorted_data = sorted(similar_pairs, key=lambda x: x['score'], reverse=True)
+        with open('similar.csv', 'w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=sorted_data[0].keys())
+            writer.writeheader()
+            writer.writerows(sorted_data)
 
 if __name__ == "__main__":
     main()
