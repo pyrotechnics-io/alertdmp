@@ -190,6 +190,8 @@ def main():
                     writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
                     writer.writeheader()
                     writer.writerows(policy_data)
+    else:
+        logger.info("Using saved cache")
                     
     if int(args.similarity) > 0:
         compute_distance(args.similarity, policy_data)
