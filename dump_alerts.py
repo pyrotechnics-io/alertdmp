@@ -1,19 +1,23 @@
 #!/usr/bin/env python
 
-import csv
-import os
-import time
-import json
-import argparse
-from pathlib import Path
-from pandas import json_normalize
-from thefuzz import fuzz
-import itertools
-from gql import Client, gql
-from gql.transport.requests import RequestsHTTPTransport
-from gql.transport.exceptions import TransportQueryError
 
+from gql import Client, gql
+from gql.transport.exceptions import TransportQueryError
+from gql.transport.requests import RequestsHTTPTransport
+from pandas import json_normalize
+from pathlib import Path
+from sklearn.cluster import HDBSCAN
+from thefuzz import fuzz
+from thefuzz import fuzz
+import argparse
+import csv
+import itertools
+import json
 import logging
+import numpy as np
+import os
+import pandas as pd
+import time
 
 # GraphQL templates
 query_accounts = None
@@ -137,6 +141,7 @@ def get_args():
     parser.add_argument("--similarity", required=False, default=0, help="A percentage similarity threshold to filter against")
     parser.add_argument("--output_file", required=False, default="alert_policies.csv", help="Output file")
     parser.add_argument("--json", required=False, action='store_true', default=False, help="Dump json directly to file")
+    parser.add_argument("--purge_cache", required=False, action='store_true', default=False, help="Purge local cache of data and requery via API")
     parser.add_argument("--use_pandas", required=False, action='store_true', default=True, help="Use pandas for json normalization")
     parser.add_argument("--debug", required=False, action='store_true', default=False, help="Dump debug data")
     
@@ -161,26 +166,69 @@ def main():
     logger.info("Loading GraphQL templates")
     load_templates()
     logger.info("Collecting data ...")
-    json_data = process(account_id, api_key)
-    policy_data = post_process(json_data)
+    
+    if args.purge_cache:
+        if os.path.exists(args.output_file):
+            os.remove(args.output_file)
+        
+    if not os.path.exists(args.output_file):
+        json_data = process(account_id, api_key)
+        policy_data = post_process(json_data)
 
-    if args.json:
-        logger.info("Dumping to JSON")
-        with open(Path(args.output_file).stem + '.json', 'w', newline='') as file:
-            file.write(json.dumps(policy_data, indent=4))
-    else:
-        if args.use_pandas:
-            logger.info("Dumping to CSV (pandas)")
-            df = json_normalize(policy_data, sep='.')
-            df.to_csv(args.output_file, index=False)
-        else:    
-            logger.info("Dumping to CSV")
-            with open(args.output_file, 'w', newline='') as file:
-                writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
-                writer.writeheader()
-                writer.writerows(policy_data)
-                
+        if args.json:
+            logger.info("Dumping to JSON")
+            with open(Path(args.output_file).stem + '.json', 'w', newline='') as file:
+                file.write(json.dumps(policy_data, indent=4))
+        else:
+            if args.use_pandas:
+                logger.info("Dumping to CSV (pandas)")
+                df = json_normalize(policy_data, sep='.')
+                df.to_csv(args.output_file, index=False)
+            else:    
+                logger.info("Dumping to CSV")
+                with open(args.output_file, 'w', newline='') as file:
+                    writer = csv.DictWriter(file, fieldnames=policy_data[0].keys())
+                    writer.writeheader()
+                    writer.writerows(policy_data)
+                    
     if int(args.similarity) > 0:
+        compute_distance(args.similarity, policy_data)
+    else:
+        cluster_queries(args.output_file)
+
+def cluster_queries(file_path):
+    df = pd.read_csv(file_path).query('enabled == True').dropna(subset=['nrql.query'])
+
+    queries = df['nrql.query'].str.lower()
+    query_ids = np.array(queries.index.tolist())
+
+    vectors = []
+    for source in queries:
+        vectors.append([fuzz.WRatio(source, target) for target in queries])
+
+    clf = HDBSCAN(min_cluster_size=2, n_jobs=-1)
+    clf.fit(vectors)
+
+    largest_cluster = np.max(clf.labels_)
+    clustered_records = np.where(clf.labels_ >= 0)
+
+    print(f'Found {largest_cluster} clusters')
+
+    clustered_results = []
+    for cluster in range(largest_cluster):
+        index = np.where(clf.labels_ == cluster)[0]
+        qids = query_ids[index]
+        clustered_results.append(qids)
+
+    print(f'Median {np.median([len(i) for i in clustered_results])} queries per cluster\n\n')
+
+    for i in range(largest_cluster):
+        print(f'Cluster {i}')
+        print('--------')
+        print("\n".join(df[df.index.isin(clustered_results[i])]['nrql.query'].str.lower().tolist()))
+        print('')
+
+def compute_distance(similarity, policy_data):
         logger.info(f"Discovering similar pairs")
         similar_pairs = []
         for row1, row2 in itertools.combinations(policy_data, 2):
@@ -189,7 +237,7 @@ def main():
             value2 = row2["nrql"]["query"]
             key2 = f"{row2['id']}:{row2['name']}"
             similarity_score = fuzz.ratio(value1, value2)
-            if similarity_score >= int(args.similarity):
+            if similarity_score >= int(similarity):
                 similar_pairs.append({"first": key1, "second": key2, "score": similarity_score})
         logger.info(f"Sorting ...")
         sorted_data = sorted(similar_pairs, key=lambda x: x['score'], reverse=True)
