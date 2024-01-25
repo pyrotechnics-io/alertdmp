@@ -14,10 +14,15 @@ This Python script, `Alert Configuration Dumper`, is designed to interact with t
 
 ## Requirements
 
-- Python 3.x
-- `pandas` library (optional for JSON normalization)
-- `gql` library for GraphQL support
-- `requests` library for handling HTTP requests
+### Python 3.x
+- `pandas` library: Used for JSON normalization. 
+- `gql` library: Provides GraphQL support.
+- `requests` library: Handles HTTP requests.
+- `scikit-learn` library: Used for performing clustering.
+- `backoff` library: Implements backoff algorithms.
+- `numpy`: Essential for numerical computations.
+- `thefuzz`: Another library for fuzzy string matching.
+
 
 ## Installation
 
@@ -37,9 +42,11 @@ The script is executed from the command line with several options:
 
 ### Options
 
-- `--account_id`: Your New Relic account ID (required).
-- `--api_key`: Your New Relic API key (required).
-- `--output_file`: Specify the output file name (default: alert_policies.csv).
-- `--json`: Output data in JSON format.
-- `--use_pandas`: Use pandas for JSON normalization (default: True).
-- `--debug`: Enable debug mode for additional logging (default: False).
+- `--account_id`: Your New Relic Account ID (leave blank for all accounts). Optional.
+- `--api_key`: Your New Relic API key. Required.
+- `--similarity`: A percentage similarity threshold to filter against (default: 0). Optional.
+- `--output_file`: Specify the output file name (default: alert_policies.csv). Optional.
+- `--json`: Dump JSON directly to file. If enabled, outputs data in JSON format (default: False). Optional.
+- `--purge_cache`: Purge local cache of data and requery via API (default: False). Optional.
+- `--use_pandas`: Use pandas for JSON normalization (default: True). Optional.
+- `--debug`: Enable debug mode for additional logging (default: False). Optional.
