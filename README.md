@@ -1,8 +1,8 @@
-# New Relic Alert Configuration Dumper
+# New Relic Alert Analyser
 
 ## Overview
 
-This Python script, `Alert Configuration Dumper`, is designed to interact with the New Relic API to fetch and dump alert configurations. It retrieves alert policy data and policy conditions associated with an account on New Relic, and then outputs this data either in JSON format or as a CSV file.
+The script is crafted to interface with the New Relic API, enabling it to gather and export alert configuration details. It accomplishes this by pulling data related to alert policies and their conditions from a specified New Relic account. Once retrieved, the script can output this information in either JSON or CSV format. Its primary function is to analyze these files to identify and flag any redundancy or duplicates among the alert conditions for additional scrutiny.
 
 ## Features
 
