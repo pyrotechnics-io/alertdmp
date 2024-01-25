@@ -6,11 +6,10 @@ The script is crafted to interface with the New Relic API, enabling it to gather
 
 ## Features
 
-- Fetch alert policy data and conditions from New Relic API.
-- Output data in either JSON or CSV format.
-- Option to use pandas for JSON normalization.
-- Logging support for debugging and tracking the process.
-- Command line arguments for flexibility and ease of use.
+- Retrieves alert policy information and conditions using the New Relic API.
+- Exports data in JSON or CSV formats, caching the output for the analysis steps.
+- Utilizes Levenshtein distance matching to identify similar alerts.
+- Employs clustering algorithms from scikit-learn to detect potential matches.
 
 ## Requirements
 
